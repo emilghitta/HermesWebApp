@@ -1,1 +1,1 @@
-web: java -jar target/HermesWebApp_1.0.jar $PORT
+web: java -jar target/spring-skeleton-1.0-SNAPSHOT.jar $PORT
