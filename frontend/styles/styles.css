@@ -1,0 +1,15 @@
+.main-window h1{
+    width: 100%;
+    margin: 0;
+    padding: 16px;
+}
+
+.main-window a{
+    background-color: #EEEEEE;
+    padding: 8px 20px;
+    text-decoration:none;
+    font-weight:bold;
+    border-radius:5px;
+    cursor:pointer;
+
+}
