@@ -65,34 +65,29 @@ public class MainView extends VerticalLayout {
         add(h1);
 
 
-
+        //Channel Selector dropdown menu
         ComboBox channelSelector = new ComboBox();
         channelSelector.isRequired();
         channelSelector.setLabel("Choose the download channel");
         channelSelector.setItems(channelList);
         add(channelSelector);
 
-        TextField versionInput = new TextField();
-        versionInput.isRequired();
-        versionInput.setLabel("Specify build version");
-        versionInput.setPlaceholder("eg. 82.0b4");
-        versionInput.setEnabled(false);
-        add(versionInput);
+        //Version selector dropdown menu
+        ComboBox buildVersion = new ComboBox();
+        buildVersion.isRequired();
+        buildVersion.setLabel("Specify build version");
+//        buildVersion.setPlaceholder("eg. 82.0b4");
+        buildVersion.setEnabled(false);
+        add(buildVersion);
 
-        TextField locale = new TextField();
-        locale.isRequired();
-        locale.setLabel("Locale");
-        locale.setPlaceholder("eg. en-US");
-        locale.setEnabled(false);
-        add(locale);
-
+        //Build Number Dropdown menu
         ComboBox buildNumber = new ComboBox();
         buildNumber.isRequired();
         buildNumber.setLabel("Select build");
         buildNumber.setEnabled(false);
         add(buildNumber);
 
-
+        //OS Version dropdown
         ComboBox osVersion = new ComboBox();
         osVersion.isRequired();
         osVersion.setLabel("Platform");
@@ -100,16 +95,21 @@ public class MainView extends VerticalLayout {
         osVersion.setItems(osVersionList);
         add(osVersion);
 
-        Checkbox autoOpenBuilds = new Checkbox();
-        autoOpenBuilds.setEnabled(false);
+        //Locale selector dropdown
+        ComboBox locale = new ComboBox();
+        locale.isRequired();
+        locale.setLabel("Locale");
+        locale.setEnabled(false);
+        add(locale);
 
+        //Installer Type dropdown menu
         ComboBox installerType = new ComboBox();
         installerType.isRequired();
         installerType.setLabel("Installer");
         installerType.setEnabled(false);
         add(installerType);
 
-
+        //Download anchor
         Anchor anc = new Anchor();
         anc.setText("Download build");
         anc.setEnabled(false);
@@ -119,47 +119,81 @@ public class MainView extends VerticalLayout {
         errorMessage.setVisible(false);
         add(errorMessage);
 
+        /*
+        On channel selector value change we:
+        - are resetting the OS version, build version and locale values.
+        - If the channel selector value is Nightly we are currently clearing version input and fetching always the latest nightly. We need to update this!
+        - If the channel selector value is !Nightly we are: Enabling the VersionInput dropdwn menu, clearing the build number input and enabling the osVersion (maybe we need to change that as well).
 
+         */
         channelSelector.addValueChangeListener(event -> {
             osVersion.setValue("");
-            versionInput.setValue("");
+            buildVersion.setValue("");
             locale.setValue("");
-            autoOpenBuilds.setEnabled(true);
 
             if (channelSelector.getValue().toString().contains("Latest Nightly")) {
-                versionInput.setLabel("");
-                versionInput.setEnabled(false);
+                buildVersion.setLabel("");
+                buildVersion.setEnabled(false);
                 buildNumber.clear();
                 buildNumber.setEnabled(false);
                 osVersion.setEnabled(true);
-            } else {
-                versionInput.setEnabled(true);
+            } else{
+                buildVersion.setEnabled(true);
                 buildNumber.clear();
-                buildNumber.setEnabled(true);
                 osVersion.setEnabled(false);
+            }
+
+            if(channelSelector.getValue() != null){
+                buildVersion.focus();
             }
         });
 
 
+        /*
+        Adding focus listener on Verison Numbers drodpown menu.
+        - This dropdown is enabled after providing input inside the Channel Selector dropdown menu.
+        - Clearing the build number and version input on focus.
+        - Calling the utility parseHtmlBuildVersion method and providing the return of the utility buildPathForBuildVersion method, the required combo box and the value of
+        the channel selector.
+         */
 
-       versionInput.getElement().addEventListener("keydown", e->{
-          buildNumber.clear();
-       });
-
-       locale.getElement().addEventListener("keydown", e->{
+       buildVersion.addFocusListener(event ->{
+           buildNumber.setEnabled(true);
            buildNumber.clear();
-           //osVersion.clear();
+           buildVersion.clear();
+           utill.parseHtmlBuildVersion(utill.buildPathForBuildVersion(channelSelector.getValue().toString()),buildVersion,channelSelector.getValue().toString());
        });
+
+       buildVersion.addValueChangeListener(event -> {
+          if(buildVersion.getValue() != null && !buildVersion.isEnabled()){
+              buildNumber.focus();
+          }
+       });
+
+       /*
+       Adding focus listener for the build number dropdown menu.
+       - On focus we are clearing the previously entered build number
+       - On focus we are calling the utility parseHTMLBuildNumber method and passing the return type of the utility buildPathForBuildNumber method and the build number combo box
+        */
 
         buildNumber.addFocusListener(event -> {
             buildNumber.clear();
-            utill.parseHTMLBuildVersion(utill.buildPathForBuildVersion((String) channelSelector.getValue(), versionInput), buildNumber);
+            utill.parseHTMLBuildNumber(utill.buildPathForBuildNumber((String) channelSelector.getValue(), buildVersion.getValue().toString()), buildNumber);
         });
 
+        /*
+        Adding a value change listener to enable the osVersion dropdown after providing the buildNumber
+         */
 
         buildNumber.addValueChangeListener(event -> {
+            if(buildNumber.getValue() != null && !buildNumber.isEnabled()) {
+
+                osVersion.focus();
+            }
             osVersion.setEnabled(true);
+
         });
+
 
         osVersion.addValueChangeListener(event -> {
 
@@ -199,6 +233,35 @@ public class MainView extends VerticalLayout {
             }
         });
 
+        /*
+        Locale drop down menu event listener
+         */
+
+        osVersion.addValueChangeListener(event -> {
+           if(osVersion.getValue() != null && !osVersion.isEnabled()){
+               locale.focus();
+           }
+        });
+
+        locale.addFocusListener(event ->{
+           installerType.setEnabled(true);
+           locale.clear();
+            try {
+                utill.parseHTMLLocale(utill.buildPathForLocale(channelSelector.getValue().toString(),buildVersion.getValue().toString(),buildNumber.getValue().toString(),osVersion.getValue().toString()),locale);
+            } catch (IOException ioException) {
+                ioException.printStackTrace();
+            }
+
+
+        });
+
+        locale.addValueChangeListener(event -> {
+            if(locale.getValue() != null && !locale.isEnabled()){
+                installerType.focus();
+            }
+
+        });
+
 
         installerType.addValueChangeListener(event -> {
             anc.setEnabled(true);
@@ -215,33 +278,33 @@ public class MainView extends VerticalLayout {
                     builds.put("latestNightly", "Nightly");
                     utill.fileNN = "LatestNightly" + "-" + locale.getValue();
                 } else if (dropdownInput.contains("Beta")) {
-                    if (!eng.checkForInvalidString(versionInput.getValue(), "b")) {
+                    if (!eng.checkForInvalidString(buildVersion.getValue().toString(), "b")) {
                         setErrorMessage("Build Download Error: Please double check you Build Version or Locale");
                     } else {
                     System.out.println("Beta");
-                    builds.put("betaVersion", versionInput.getValue());
-                    utill.fileNN = versionInput.getValue() + "-" + buildNumber.getValue() + "-" + locale.getValue();
+                    builds.put("betaVersion", buildVersion.getValue().toString());
+                    utill.fileNN = buildVersion.getValue() + "-" + buildNumber.getValue() + "-" + locale.getValue();
                 }
 
             } else if (dropdownInput.contains("Release")) {
-                if (eng.checkForInvalidString(versionInput.getValue(), "b")) {
+                if (eng.checkForInvalidString(buildVersion.getValue().toString(), "b")) {
                     setErrorMessage("Build Download Error: Please double check you Build Version or Locale");
                 } else {
                     System.out.println("Release");
-                    builds.put("releaseVersion", versionInput.getValue());
-                    utill.fileNN = versionInput.getValue() + "-" + buildNumber.getValue() + "-" + locale.getValue();
+                    builds.put("releaseVersion", buildVersion.getValue().toString());
+                    utill.fileNN = buildVersion.getValue() + "-" + buildNumber.getValue() + "-" + locale.getValue();
                 }
             } else if (dropdownInput.contains("ESR")) {
                     System.out.println("ESR");
-                    builds.put("esrVersion", versionInput.getValue());
-                    utill.fileNN = versionInput.getValue() + "-" + buildNumber.getValue() + "-" + locale.getValue();
+                    builds.put("esrVersion", buildVersion.getValue().toString());
+                    utill.fileNN = buildVersion.getValue() + "-" + buildNumber.getValue() + "-" + locale.getValue();
             } else if (dropdownInput.contains("DevEd")) {
-                if (!eng.checkForInvalidString(versionInput.getValue(), "b")) {
+                if (!eng.checkForInvalidString(buildVersion.getValue().toString(), "b")) {
                     setErrorMessage("Build Download Error: Please double check you Build Version or Locale");
                 } else {
                     System.out.println("DevEd");
-                    builds.put("devedVersion", versionInput.getValue());
-                    utill.fileNN = versionInput.getValue() + "-" + buildNumber.getValue() + "-" + locale.getValue();
+                    builds.put("devedVersion", buildVersion.getValue().toString());
+                    utill.fileNN = buildVersion.getValue() + "-" + buildNumber.getValue() + "-" + locale.getValue();
                 }
             }
 
@@ -253,12 +316,12 @@ public class MainView extends VerticalLayout {
                 System.out.println(buildNumber.getValue().toString());
                 System.out.println(utill.fileNN);
             } catch (NullPointerException nl) {
-                System.out.println("Nothing scary. Something is null");
+                anc.setEnabled(false);
             }
 
 
             try {
-                eng.pathFoundation(builds, eng.buildNumber, eng.osSelection, locale.getValue(), eng.typeOfFile, utill.fileNN);
+                eng.pathFoundation(builds, eng.buildNumber, eng.osSelection, locale.getValue().toString(), eng.typeOfFile, utill.fileNN);
                 anc.setHref(eng.finalPath);
             } catch (NullPointerException | IOException ioException) {
                 System.out.println(ioException);
