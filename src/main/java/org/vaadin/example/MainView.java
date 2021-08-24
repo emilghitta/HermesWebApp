@@ -12,19 +12,6 @@ import com.vaadin.flow.router.Route;
 import java.io.IOException;
 import java.util.*;
 
-
-/**
- * A sample Vaadin view class.
- * <p>
- * To implement a Vaadin view just extend any Vaadin component and
- * use @Route annotation to announce it in a URL as a Spring managed
- * bean.
- * Use the @PWA annotation make the application installable on phones,
- * tablets and some desktop browsers.
- * <p>
- * A new instance of this class is created for every new user and every
- * browser tab/window.
- */
 @Route
 @CssImport("./styles/styles.css")
 
@@ -32,8 +19,6 @@ public class MainView extends VerticalLayout {
 
     private Utils utill = new Utils();
     private Engine eng = new Engine();
-    public String jsonValue;
-    private String dirNN;
     private String dropdownInput;
     protected HashMap<String,String> builds = new HashMap<>();
     private List<String> channelList = new ArrayList<String>(Arrays.asList("Latest Nightly","Beta","Release","ESR","DevEd"));
@@ -45,14 +30,7 @@ public class MainView extends VerticalLayout {
     private List<String> fileTypeLinuxList = new ArrayList<String>(Arrays.asList("archive"));
     private List<String> fileTypeMacList = new ArrayList<String>(Arrays.asList("dmg","pkg"));
     private List<String> fileTypeMacListDevEd = new ArrayList<String>(Arrays.asList("dmg"));
-   protected H2 errorMessage = new H2("");
-    /**
-     * Construct a new Vaadin view.
-     * <p>
-     * Build the initial UI state for the user accessing the application.
-     *
-     * @param service The message service. Automatically injected Spring managed bean.
-     */
+
     public MainView() {
         setDefaultHorizontalComponentAlignment(Alignment.CENTER);
         addClassName("main-window");
@@ -63,7 +41,6 @@ public class MainView extends VerticalLayout {
         H1 h1 = new H1("Hermes");
         h1.getElement().getThemeList().add("dark");
         add(h1);
-
 
         //Channel Selector dropdown menu
         ComboBox channelSelector = new ComboBox();
@@ -76,7 +53,6 @@ public class MainView extends VerticalLayout {
         ComboBox buildVersion = new ComboBox();
         buildVersion.isRequired();
         buildVersion.setLabel("Specify build version");
-//        buildVersion.setPlaceholder("eg. 82.0b4");
         buildVersion.setEnabled(false);
         add(buildVersion);
 
@@ -112,12 +88,7 @@ public class MainView extends VerticalLayout {
         //Download anchor
         Anchor anc = new Anchor();
         anc.setText("Download build");
-        anc.setEnabled(false);
         add(anc);
-
-
-        errorMessage.setVisible(false);
-        add(errorMessage);
 
         /*
         On channel selector value change we:
@@ -130,12 +101,11 @@ public class MainView extends VerticalLayout {
             osVersion.setValue("");
             buildVersion.setValue("");
             locale.setValue("");
+            buildNumber.setEnabled(false);
 
             if (channelSelector.getValue().toString().contains("Latest Nightly")) {
-                buildVersion.setLabel("");
                 buildVersion.setEnabled(false);
                 buildNumber.clear();
-                buildNumber.setEnabled(false);
                 osVersion.setEnabled(true);
             } else{
                 buildVersion.setEnabled(true);
@@ -158,14 +128,13 @@ public class MainView extends VerticalLayout {
          */
 
        buildVersion.addFocusListener(event ->{
-           buildNumber.setEnabled(true);
-           buildNumber.clear();
            buildVersion.clear();
            utill.parseHtmlBuildVersion(utill.buildPathForBuildVersion(channelSelector.getValue().toString()),buildVersion,channelSelector.getValue().toString());
        });
 
        buildVersion.addValueChangeListener(event -> {
-          if(buildVersion.getValue() != null && !buildVersion.isEnabled()){
+           if(buildVersion.getValue() != null){
+              buildNumber.setEnabled(true);
               buildNumber.focus();
           }
        });
@@ -186,20 +155,17 @@ public class MainView extends VerticalLayout {
          */
 
         buildNumber.addValueChangeListener(event -> {
-            if(buildNumber.getValue() != null && !buildNumber.isEnabled()) {
-
+            if(buildNumber.getValue() != null) {
+                osVersion.setEnabled(true);
                 osVersion.focus();
             }
-            osVersion.setEnabled(true);
-
         });
 
 
         osVersion.addValueChangeListener(event -> {
 
             locale.setEnabled(true);
-            installerType.setEnabled(true);
-            //autoOpenBuilds.setEnabled(false);
+            locale.focus();
 
             if (osVersion.getValue().toString().contains("linux-x86_64") || osVersion.getValue().toString().contains("linux-i686")){
                 installerType.clear();
@@ -231,31 +197,33 @@ public class MainView extends VerticalLayout {
                 }
 
             }
+            if(osVersion.getValue() != null && !osVersion.isEnabled()){
+               locale.focus();
+          }
         });
 
         /*
         Locale drop down menu event listener
          */
 
-        osVersion.addValueChangeListener(event -> {
-           if(osVersion.getValue() != null && !osVersion.isEnabled()){
-               locale.focus();
-           }
-        });
+//        osVersion.addValueChangeListener(event -> {
+//           if(osVersion.getValue() != null && !osVersion.isEnabled()){
+//               locale.focus();
+//           }
+//        });
 
         locale.addFocusListener(event ->{
-           installerType.setEnabled(true);
            locale.clear();
             try {
                 utill.parseHTMLLocale(utill.buildPathForLocale(channelSelector.getValue().toString(),buildVersion.getValue().toString(),buildNumber.getValue().toString(),osVersion.getValue().toString()),locale);
             } catch (IOException ioException) {
                 ioException.printStackTrace();
             }
-
-
         });
 
         locale.addValueChangeListener(event -> {
+            installerType.setEnabled(true);
+
             if(locale.getValue() != null && !locale.isEnabled()){
                 installerType.focus();
             }
@@ -266,10 +234,10 @@ public class MainView extends VerticalLayout {
         installerType.addValueChangeListener(event -> {
             anc.setEnabled(true);
 
+
         });
 
         anc.getElement().addEventListener("mouseover", e -> {
-            if (jsonValue == null) {
                 builds.clear();
                 dropdownInput = channelSelector.getValue().toString().trim();
 
@@ -278,34 +246,26 @@ public class MainView extends VerticalLayout {
                     builds.put("latestNightly", "Nightly");
                     utill.fileNN = "LatestNightly" + "-" + locale.getValue();
                 } else if (dropdownInput.contains("Beta")) {
-                    if (!eng.checkForInvalidString(buildVersion.getValue().toString(), "b")) {
-                        setErrorMessage("Build Download Error: Please double check you Build Version or Locale");
-                    } else {
+
                     System.out.println("Beta");
                     builds.put("betaVersion", buildVersion.getValue().toString());
                     utill.fileNN = buildVersion.getValue() + "-" + buildNumber.getValue() + "-" + locale.getValue();
-                }
 
             } else if (dropdownInput.contains("Release")) {
-                if (eng.checkForInvalidString(buildVersion.getValue().toString(), "b")) {
-                    setErrorMessage("Build Download Error: Please double check you Build Version or Locale");
-                } else {
+
                     System.out.println("Release");
                     builds.put("releaseVersion", buildVersion.getValue().toString());
                     utill.fileNN = buildVersion.getValue() + "-" + buildNumber.getValue() + "-" + locale.getValue();
-                }
+
             } else if (dropdownInput.contains("ESR")) {
                     System.out.println("ESR");
                     builds.put("esrVersion", buildVersion.getValue().toString());
                     utill.fileNN = buildVersion.getValue() + "-" + buildNumber.getValue() + "-" + locale.getValue();
             } else if (dropdownInput.contains("DevEd")) {
-                if (!eng.checkForInvalidString(buildVersion.getValue().toString(), "b")) {
-                    setErrorMessage("Build Download Error: Please double check you Build Version or Locale");
-                } else {
+
                     System.out.println("DevEd");
                     builds.put("devedVersion", buildVersion.getValue().toString());
                     utill.fileNN = buildVersion.getValue() + "-" + buildNumber.getValue() + "-" + locale.getValue();
-                }
             }
 
             try {
@@ -319,34 +279,18 @@ public class MainView extends VerticalLayout {
                 anc.setEnabled(false);
             }
 
-
             try {
                 eng.pathFoundation(builds, eng.buildNumber, eng.osSelection, locale.getValue().toString(), eng.typeOfFile, utill.fileNN);
                 anc.setHref(eng.finalPath);
             } catch (NullPointerException | IOException ioException) {
                 System.out.println(ioException);
-                setErrorMessage("Build Download Error: Please double check you Build Version or Locale");
-
             }
             System.out.println(eng.finalPath);
-        }
 
         });
+
+        anc.getElement().addEventListener("mouseover", e -> {
+            builds.clear();
+        });
     }
-
-
-    public void setErrorMessage(String message){
-        if(message.contains("SUCCESS!!") || message.contains("File Uploaded Successfully") || message.contains("Download finished successfully")){
-            errorMessage.setVisible(true);
-            errorMessage.setText(message);
-        } else if(message.contains("JSON contains invalid or Nightly builds")){
-            errorMessage.setVisible(true);
-            errorMessage.setText(message);
-        } else if(message.contains("Download in progress")){
-            errorMessage.setVisible(true);
-            errorMessage.setText(message);
-
-        }
-    }
-
 }
