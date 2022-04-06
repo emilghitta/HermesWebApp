@@ -73,7 +73,7 @@ public class Utils{
         try{
             buildVersNumber.clear();
             Document buildVersion = Jsoup.connect(build).timeout(4000).get();
-            Elements con = buildVersion.select("a");
+            Elements con = buildVersion.select("a[href*='candidates']:not([href*='archived'])");
 
             String buildV = con.text();
             System.out.println(buildV);
